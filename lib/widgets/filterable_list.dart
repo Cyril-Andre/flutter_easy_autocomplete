@@ -25,18 +25,22 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
-class FilterableList extends StatelessWidget {
-  final List<String> items;
-  final Function(String) onItemTapped;
+class FilterableList<T> extends StatelessWidget {
+  final String searchString;
+  final List<T> items;
+  final Function(T) onItemTapped;
   final double elevation;
   final double maxListHeight;
   final TextStyle suggestionTextStyle;
   final Color? suggestionBackgroundColor;
   final bool loading;
-  final Widget Function(String data)? suggestionBuilder;
+  final Widget Function(T data)? suggestionBuilder;
   final Widget? progressIndicatorBuilder;
+  final String Function(T item) itemAsString;
 
   const FilterableList(
       {required this.items,
@@ -47,16 +51,16 @@ class FilterableList extends StatelessWidget {
       this.suggestionTextStyle = const TextStyle(),
       this.suggestionBackgroundColor,
       this.loading = false,
-      this.progressIndicatorBuilder});
+      this.progressIndicatorBuilder,
+      required this.itemAsString,
+      required this.searchString});
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ScaffoldState? scaffold = Scaffold.maybeOf(context);
 
-    Color _suggestionBackgroundColor = suggestionBackgroundColor ??
-        scaffold?.widget.backgroundColor ??
-        theme.scaffoldBackgroundColor;
+    Color _suggestionBackgroundColor = suggestionBackgroundColor ?? scaffold?.widget.backgroundColor ?? theme.scaffoldBackgroundColor;
 
     return Material(
       elevation: 5,
@@ -69,35 +73,31 @@ class FilterableList extends StatelessWidget {
           child: ListView.builder(
             shrinkWrap: true,
             padding: const EdgeInsets.all(5),
-            itemCount: loading ? 1 : items.length,
+            itemCount: loading
+                ? 1
+                : items.length
+                ,
             itemBuilder: (context, index) {
               if (loading) {
                 return Container(
-                    alignment: Alignment.center,
-                    padding: EdgeInsets.all(10),
-                    child: Visibility(
-                      visible: progressIndicatorBuilder != null,
-                      child: progressIndicatorBuilder!,
-                      replacement: CircularProgressIndicator()
-                    )
-                );
+                    alignment: Alignment.center, padding: EdgeInsets.all(10), child: (progressIndicatorBuilder != null) ? progressIndicatorBuilder : CircularProgressIndicator());
               }
 
               if (suggestionBuilder != null) {
                 return InkWell(
                     child: suggestionBuilder!(items[index]),
-                    onTap: () => onItemTapped(items[index]));
+                    onTap: () {
+                      onItemTapped(items[index]);
+                    });
               }
 
               return Material(
                   color: Colors.transparent,
                   child: InkWell(
-                      child: Container(
-                          width: double.infinity,
-                          padding: EdgeInsets.all(5),
-                          child:
-                              Text(items[index], style: suggestionTextStyle)),
-                      onTap: () => onItemTapped(items[index])));
+                      child: Container(width: double.infinity, padding: EdgeInsets.all(5), child: Text(itemAsString(items[index]), style: suggestionTextStyle)),
+                      onTap: () {
+                        onItemTapped(items[index]);
+                      }));
             },
           ),
         ),

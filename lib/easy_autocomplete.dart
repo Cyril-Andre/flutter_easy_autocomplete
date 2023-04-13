@@ -30,33 +30,36 @@ library easy_autocomplete;
 import 'dart:async';
 
 import 'package:easy_autocomplete/widgets/filterable_list.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-class EasyAutocomplete extends StatefulWidget {
+import 'controllers/suggestion_controller.dart';
+
+class EasyAutocomplete<T> extends StatefulWidget {
   /// The list of suggestions to be displayed
-  final List<String>? suggestions;
+  final List<T>? suggestions;
 
   /// Fetches list of suggestions from a Future
-  final Future<List<String>> Function(String searchValue)? asyncSuggestions;
+  final Future<List<T>> Function(String searchValue)? asyncSuggestions;
 
   /// Text editing controller
-  final TextEditingController? controller;
+  final SuggestionController<T>? controller;
 
   /// Can be used to decorate the input
   final InputDecoration decoration;
 
   /// Function that handles the changes to the input
-  final Function(String)? onChanged;
+  //final Function(String)? onChanged;
 
   /// Function that handles the submission of the input
-  final Function(String)? onSubmitted;
+  final Function(T?)? onChangeSelection;
 
   /// Can be used to set custom inputFormatters to field
   final List<TextInputFormatter> inputFormatter;
 
   /// Can be used to set the textfield initial value
-  final String? initialValue;
+  final T? initialValue;
 
   /// Can be used to set the text capitalization type
   final TextCapitalization textCapitalization;
@@ -86,13 +89,17 @@ class EasyAutocomplete extends StatefulWidget {
   final Duration debounceDuration;
 
   /// Can be used to customize suggestion items
-  final Widget Function(String data)? suggestionBuilder;
+  final Widget Function(T data)? suggestionBuilder;
 
   /// Can be used to display custom progress idnicator
   final Widget? progressIndicatorBuilder;
 
   /// Can be used to validate field value
-  final String? Function(String?)? validator;
+  final String? Function(T?)? validator;
+
+  final String Function(T?) itemAsString;
+
+  final bool Function(T?, T?) compareFn;
 
   /// Creates a autocomplete widget to help you manage your suggestions
   const EasyAutocomplete(
@@ -102,8 +109,7 @@ class EasyAutocomplete extends StatefulWidget {
       this.progressIndicatorBuilder,
       this.controller,
       this.decoration = const InputDecoration(),
-      this.onChanged,
-      this.onSubmitted,
+      this.onChangeSelection,
       this.inputFormatter = const [],
       this.initialValue,
       this.autofocus = false,
@@ -115,27 +121,26 @@ class EasyAutocomplete extends StatefulWidget {
       this.suggestionTextStyle = const TextStyle(),
       this.suggestionBackgroundColor,
       this.debounceDuration = const Duration(milliseconds: 400),
-      this.validator})
-      : assert(onChanged != null || controller != null,
-            'onChanged and controller parameters cannot be both null at the same time'),
-        assert(!(controller != null && initialValue != null),
-            'controller and initialValue cannot be used at the same time'),
-        assert(
-            suggestions != null && asyncSuggestions == null ||
-                suggestions == null && asyncSuggestions != null,
+      this.validator,
+      required this.itemAsString,
+      required this.compareFn})
+      : //assert(onChanged != null || controller != null, 'onChanged and controller parameters cannot be both null at the same time'),
+        assert(!(controller != null && initialValue != null), 'controller and initialValue cannot be used at the same time'),
+        assert(suggestions != null && asyncSuggestions == null || suggestions == null && asyncSuggestions != null,
             'suggestions and asyncSuggestions cannot be both null or have values at the same time');
 
   @override
-  State<EasyAutocomplete> createState() => _EasyAutocompleteState();
+  State<EasyAutocomplete<T>> createState() => _EasyAutocompleteState<T>();
 }
 
-class _EasyAutocompleteState extends State<EasyAutocomplete> {
+class _EasyAutocompleteState<T> extends State<EasyAutocomplete<T>> {
   final LayerLink _layerLink = LayerLink();
-  late TextEditingController _controller;
+  late TextEditingController _textFieldController;
+  T? selectedItem;
   bool _hasOpenedOverlay = false;
   bool _isLoading = false;
   OverlayEntry? _overlayEntry;
-  List<String> _suggestions = [];
+  List<T> _suggestions = [];
   Timer? _debounce;
   String _previousAsyncSearchText = '';
   late FocusNode _focusNode;
@@ -143,16 +148,34 @@ class _EasyAutocompleteState extends State<EasyAutocomplete> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialValue != null) {
+      selectedItem = widget.initialValue;
+    } else if (widget.controller != null) {
+      selectedItem = widget.controller!.selectedItem;
+    }
     _focusNode = widget.focusNode ?? FocusNode();
-    _controller = widget.controller ??
-        TextEditingController(text: widget.initialValue ?? '');
-    _controller.addListener(() => updateSuggestions(_controller.text));
+    _textFieldController = TextEditingController(text: widget.itemAsString(widget.initialValue));
+    _textFieldController.addListener(() => updateSuggestions(_textFieldController.text));
     _focusNode.addListener(() {
       if (_focusNode.hasFocus)
         openOverlay();
-      else
+      // Workaround for Web to prevent overlay close before item could be tapped
+      else if (kIsWeb)
+        Future.delayed(const Duration(milliseconds: 150)).then((_) {
+          closeOverlay();
+        });
+      else {
         closeOverlay();
+      }
     });
+  }
+
+  void verifySelection() {
+    if (selectedItem == null) {
+      _textFieldController.text = '';
+    } else {
+      _textFieldController.text = widget.itemAsString(selectedItem);
+    }
   }
 
   void openOverlay() {
@@ -170,22 +193,23 @@ class _EasyAutocompleteState extends State<EasyAutocomplete> {
                   link: _layerLink,
                   showWhenUnlinked: false,
                   offset: Offset(0.0, size.height + 5.0),
-                  child: FilterableList(
+                  child: FilterableList<T>(
+                      searchString: _textFieldController.text,
                       loading: _isLoading,
                       suggestionBuilder: widget.suggestionBuilder,
                       progressIndicatorBuilder: widget.progressIndicatorBuilder,
                       items: _suggestions,
+                      itemAsString: widget.itemAsString,
                       suggestionTextStyle: widget.suggestionTextStyle,
-                      suggestionBackgroundColor:
-                          widget.suggestionBackgroundColor,
+                      suggestionBackgroundColor: widget.suggestionBackgroundColor,
                       onItemTapped: (value) {
-                        _controller
-                          ..value = TextEditingValue(
-                              text: value,
-                              selection: TextSelection.collapsed(
-                                  offset: value.length));
-                        widget.onChanged?.call(value);
-                        widget.onSubmitted?.call(value);
+                        var _text = widget.itemAsString(value);
+                        _textFieldController..value = TextEditingValue(text: _text, selection: TextSelection.collapsed(offset: _text.length));
+                        widget.onChangeSelection?.call(value);
+                        selectedItem = value;
+                        if (widget.controller != null) {
+                          widget.controller!.onChangeSelection(value);
+                        }
                         closeOverlay();
                         _focusNode.unfocus();
                       }))));
@@ -199,34 +223,36 @@ class _EasyAutocompleteState extends State<EasyAutocomplete> {
   void closeOverlay() {
     if (_hasOpenedOverlay) {
       _overlayEntry!.remove();
+      _hasOpenedOverlay = false;
       setState(() {
-        _previousAsyncSearchText = '';
+        //_previousAsyncSearchText = '';
         _hasOpenedOverlay = false;
       });
     }
+    verifySelection();
   }
 
   Future<void> updateSuggestions(String input) async {
     rebuildOverlay();
     if (widget.suggestions != null) {
       _suggestions = widget.suggestions!.where((element) {
-        return element.toLowerCase().contains(input.toLowerCase());
+        return widget.itemAsString(element).toLowerCase().contains(input.toLowerCase());
       }).toList();
       rebuildOverlay();
     } else if (widget.asyncSuggestions != null) {
-      setState(() => _isLoading = true);
+      if (_previousAsyncSearchText == input && input.isNotEmpty) return;
+
       if (_debounce != null && _debounce!.isActive) _debounce!.cancel();
+
+      setState(() {
+        _isLoading = true;
+        _previousAsyncSearchText = input;
+      });
+
       _debounce = Timer(widget.debounceDuration, () async {
-        if (_previousAsyncSearchText != input ||
-            _previousAsyncSearchText.isEmpty ||
-            input.isEmpty) {
-          _suggestions = await widget.asyncSuggestions!(input);
-          setState(() {
-            _isLoading = false;
-            _previousAsyncSearchText = input;
-          });
-          rebuildOverlay();
-        }
+        _suggestions = await widget.asyncSuggestions!(input);
+        setState(() => _isLoading = false);
+        rebuildOverlay();
       });
     }
   }
@@ -241,42 +267,56 @@ class _EasyAutocompleteState extends State<EasyAutocomplete> {
   Widget build(BuildContext context) {
     return CompositedTransformTarget(
         link: _layerLink,
-        child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                  decoration: widget.decoration,
-                  controller: _controller,
-                  inputFormatters: widget.inputFormatter,
-                  autofocus: widget.autofocus,
-                  focusNode: _focusNode,
-                  textCapitalization: widget.textCapitalization,
-                  keyboardType: widget.keyboardType,
-                  cursorColor: widget.cursorColor ?? Colors.blue,
-                  style: widget.inputTextStyle,
-                  onChanged: (value) => widget.onChanged?.call(value),
-                  onFieldSubmitted: (value) {
-                    widget.onSubmitted?.call(value);
-                    closeOverlay();
-                    _focusNode.unfocus();
-                  },
-                  onEditingComplete: () => closeOverlay(),
-                  validator: widget.validator != null
-                      ? (value) => widget.validator!(value)
-                      : null // (value) {}
-                  )
-            ]));
+        child: Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.start, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          TextFormField(
+              textInputAction: TextInputAction.next,
+              decoration: widget.decoration,
+              controller: _textFieldController,
+              inputFormatters: widget.inputFormatter,
+              autofocus: widget.autofocus,
+              focusNode: _focusNode,
+              textCapitalization: widget.textCapitalization,
+              keyboardType: widget.keyboardType,
+              cursorColor: widget.cursorColor ?? Colors.blue,
+              style: widget.inputTextStyle,
+              onChanged: (value) {
+                if ((value ?? "") == "") {
+                  selectedItem = null;
+                  widget.onChangeSelection?.call(selectedItem);
+                }
+              },
+              onFieldSubmitted: (value) {
+                var selected = (_suggestions.where((element) => widget.itemAsString(element).toLowerCase().contains(value.toLowerCase())));
+                if (selected.isEmpty) {
+                  selectedItem = null;
+                } else {
+                  selectedItem = selected.first;
+                }
+
+                widget.onChangeSelection?.call(selectedItem);
+                if (widget.controller != null) {
+                  widget.controller!.onChangeSelection(selectedItem);
+                }
+                _textFieldController.text = widget.itemAsString(selectedItem);
+                _textFieldController.selection = TextSelection.fromPosition(TextPosition(offset: _textFieldController.text.length));
+                closeOverlay();
+                //_focusNode.unfocus();
+              },
+              onEditingComplete: () => closeOverlay(),
+              validator: widget.validator != null ? (value) => widget.validator!(selectedItem) : null // (value) {}
+              )
+        ]));
   }
 
   @override
   void dispose() {
     if (_overlayEntry != null) _overlayEntry!.dispose();
+    /*
     if (widget.controller == null) {
       _controller.removeListener(() => updateSuggestions(_controller.text));
       _controller.dispose();
     }
+    */
     if (_debounce != null) _debounce?.cancel();
     if (widget.focusNode == null) {
       _focusNode.removeListener(() {
