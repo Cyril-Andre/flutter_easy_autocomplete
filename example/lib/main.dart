@@ -23,12 +23,23 @@ class MyApp extends StatelessWidget {
                         padding: EdgeInsets.all(10),
                         alignment: Alignment.center,
                         child: EasyAutocomplete<MyObject>(
-                          suggestions: [MyObject(value: 1, text: "one"), MyObject(value: 2, text: "two"), MyObject(value: 3, text: "three"), MyObject(value: 4, text: "four")],
-                          onChangeSelection: (value) => print('onSubmitted value: ${value?.value ?? -1}'),
+                          suggestionsStartWith: true,
+                          suggestions: [
+                            MyObject(value: 1, text: 'one'), 
+                            MyObject(value: 2, text: 'two'), 
+                            MyObject(value: 3, text: 'three'),
+                            MyObject(value: 4, text: 'four'),
+                            MyObject(value: 5, text: 'five'),
+                            MyObject(value: 6, text: 'six'),
+                            MyObject(value: 7, text: 'seven'),
+                            MyObject(value: 8, text: 'eight'),
+                            MyObject(value: 9, text: 'nine'),
+                            MyObject(value: 10, text: 'ten'),
+                          ],
+                          onChangeSelection: (value) => debugPrint('onChangeSelection value: ${value?.value ?? -1}'),
                           itemAsString: (p0) => p0?.text ?? '',
                           compareFn: (p0, p1) => p0?.value == p1?.value,
                         )),
-                    TextField()
                   ],
                 ))));
   }

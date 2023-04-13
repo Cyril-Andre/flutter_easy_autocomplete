@@ -40,6 +40,9 @@ class EasyAutocomplete<T> extends StatefulWidget {
   /// The list of suggestions to be displayed
   final List<T>? suggestions;
 
+  /// If true, only suggestions starting with the types characters will be displayed, otherwise all suggestions containing the charaacters are displayed
+  final bool suggestionsStartWith;
+
   /// Fetches list of suggestions from a Future
   final Future<List<T>> Function(String searchValue)? asyncSuggestions;
 
@@ -104,6 +107,7 @@ class EasyAutocomplete<T> extends StatefulWidget {
   /// Creates a autocomplete widget to help you manage your suggestions
   const EasyAutocomplete(
       {this.suggestions,
+      this.suggestionsStartWith = false,
       this.asyncSuggestions,
       this.suggestionBuilder,
       this.progressIndicatorBuilder,
@@ -154,7 +158,7 @@ class _EasyAutocompleteState<T> extends State<EasyAutocomplete<T>> {
       selectedItem = widget.controller!.selectedItem;
     }
     _focusNode = widget.focusNode ?? FocusNode();
-    _textFieldController = TextEditingController(text: widget.itemAsString(widget.initialValue));
+    _textFieldController = TextEditingController(text: widget.itemAsString(selectedItem));
     _textFieldController.addListener(() => updateSuggestions(_textFieldController.text));
     _focusNode.addListener(() {
       if (_focusNode.hasFocus)
@@ -215,7 +219,7 @@ class _EasyAutocompleteState<T> extends State<EasyAutocomplete<T>> {
                       }))));
     }
     if (!_hasOpenedOverlay) {
-      Overlay.of(context)!.insert(_overlayEntry!);
+      Overlay.of(context).insert(_overlayEntry!);
       setState(() => _hasOpenedOverlay = true);
     }
   }
@@ -227,16 +231,20 @@ class _EasyAutocompleteState<T> extends State<EasyAutocomplete<T>> {
       setState(() {
         //_previousAsyncSearchText = '';
         _hasOpenedOverlay = false;
+//    verifySelection();
       });
     }
-    verifySelection();
   }
 
   Future<void> updateSuggestions(String input) async {
     rebuildOverlay();
     if (widget.suggestions != null) {
       _suggestions = widget.suggestions!.where((element) {
-        return widget.itemAsString(element).toLowerCase().contains(input.toLowerCase());
+        if (widget.suggestionsStartWith) {
+          return widget.itemAsString(element).toLowerCase().startsWith(input.toLowerCase());
+        } else {
+          return widget.itemAsString(element).toLowerCase().contains(input.toLowerCase());
+        }
       }).toList();
       rebuildOverlay();
     } else if (widget.asyncSuggestions != null) {
@@ -280,13 +288,27 @@ class _EasyAutocompleteState<T> extends State<EasyAutocomplete<T>> {
               cursorColor: widget.cursorColor ?? Colors.blue,
               style: widget.inputTextStyle,
               onChanged: (value) {
-                if ((value ?? "") == "") {
+                if (value == '') {
                   selectedItem = null;
-                  widget.onChangeSelection?.call(selectedItem);
+                  if (widget.controller != null && widget.controller!.selectedItem != null) {
+                    widget.controller!.onChangeSelection.call(null);
+                  }
+                  //widget.onChangeSelection?.call(selectedItem);
                 }
+                setState(() {
+                  if (!_hasOpenedOverlay) {
+                    openOverlay();
+                  }
+                });
               },
               onFieldSubmitted: (value) {
-                var selected = (_suggestions.where((element) => widget.itemAsString(element).toLowerCase().contains(value.toLowerCase())));
+                String typedString = _textFieldController.text;
+                Iterable<T> selected;
+                if (widget.suggestionsStartWith) {
+                  selected = (_suggestions.where((element) => widget.itemAsString(element).toLowerCase().startsWith(typedString.toLowerCase())));
+                } else {
+                  selected = (_suggestions.where((element) => widget.itemAsString(element).toLowerCase().contains(typedString.toLowerCase())));
+                }
                 if (selected.isEmpty) {
                   selectedItem = null;
                 } else {
@@ -313,8 +335,10 @@ class _EasyAutocompleteState<T> extends State<EasyAutocomplete<T>> {
     if (_overlayEntry != null) _overlayEntry!.dispose();
     /*
     if (widget.controller == null) {
-      _controller.removeListener(() => updateSuggestions(_controller.text));
-      _controller.dispose();
+    */
+    _textFieldController.removeListener(() => updateSuggestions(_textFieldController.text));
+    _textFieldController.dispose();
+    /*
     }
     */
     if (_debounce != null) _debounce?.cancel();

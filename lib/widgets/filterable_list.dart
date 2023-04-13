@@ -25,8 +25,6 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 
 class FilterableList<T> extends StatelessWidget {
