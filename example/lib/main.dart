@@ -25,8 +25,8 @@ class MyApp extends StatelessWidget {
                         child: EasyAutocomplete<MyObject>(
                           suggestionsStartWith: true,
                           suggestions: [
-                            MyObject(value: 1, text: 'one'), 
-                            MyObject(value: 2, text: 'two'), 
+                            MyObject(value: 1, text: 'one'),
+                            MyObject(value: 2, text: 'two'),
                             MyObject(value: 3, text: 'three'),
                             MyObject(value: 4, text: 'four'),
                             MyObject(value: 5, text: 'five'),
@@ -41,6 +41,9 @@ class MyApp extends StatelessWidget {
                           compareFn: (p0, p1) => p0?.value == p1?.value,
                         )),
                   ],
-                ))));
+                )
+              )
+            )
+      );
   }
 }
