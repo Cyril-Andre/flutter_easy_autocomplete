@@ -315,14 +315,16 @@ class _EasyAutocompleteState<T> extends State<EasyAutocomplete<T>> {
                   selectedItem = selected.first;
                 }
 
+                _textFieldController.text = widget.itemAsString(selectedItem);
+                _textFieldController.selection = TextSelection.fromPosition(TextPosition(offset: _textFieldController.text.length));
+                closeOverlay();
+                _focusNode.nextFocus();
+
                 widget.onChangeSelection?.call(selectedItem);
                 if (widget.controller != null) {
                   widget.controller!.onChangeSelection(selectedItem);
                 }
-                _textFieldController.text = widget.itemAsString(selectedItem);
-                _textFieldController.selection = TextSelection.fromPosition(TextPosition(offset: _textFieldController.text.length));
-                closeOverlay();
-                //_focusNode.unfocus();
+
               },
               onEditingComplete: () => closeOverlay(),
               validator: widget.validator != null ? (value) => widget.validator!(selectedItem) : null // (value) {}
@@ -332,7 +334,9 @@ class _EasyAutocompleteState<T> extends State<EasyAutocomplete<T>> {
 
   @override
   void dispose() {
-    if (_overlayEntry != null) _overlayEntry!.dispose();
+    if (_overlayEntry != null) {
+      _overlayEntry!.dispose();
+    }
     /*
     if (widget.controller == null) {
     */
@@ -346,6 +350,11 @@ class _EasyAutocompleteState<T> extends State<EasyAutocomplete<T>> {
       _focusNode.removeListener(() {
         if (_focusNode.hasFocus)
           openOverlay();
+        // Workaround for Web to prevent overlay close before item could be tapped
+        else if (kIsWeb)
+          Future.delayed(const Duration(milliseconds: 150)).then((_) {
+            closeOverlay();
+          });
         else
           closeOverlay();
       });
