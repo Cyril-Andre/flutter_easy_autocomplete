@@ -36,14 +36,12 @@ class MyApp extends StatelessWidget {
                             MyObject(value: 9, text: 'nine'),
                             MyObject(value: 10, text: 'ten'),
                           ],
-                          onChangeSelection: (value) => debugPrint('onChangeSelection value: ${value?.value ?? -1}'),
+                          onChangeSelection: (value) => debugPrint(
+                              'onChangeSelection value: ${value?.value ?? -1}'),
                           itemAsString: (p0) => p0?.text ?? '',
                           compareFn: (p0, p1) => p0?.value == p1?.value,
                         )),
                   ],
-                )
-              )
-            )
-      );
+                ))));
   }
 }
