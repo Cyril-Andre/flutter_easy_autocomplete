@@ -323,7 +323,7 @@ class _EasyAutocompleteState<T> extends State<EasyAutocomplete<T>> {
                           widget.controller!.selectedItem != null) {
                         widget.controller!.onChangeSelection.call(null);
                       }
-                      //widget.onChangeSelection?.call(selectedItem);
+                      widget.onChangeSelection?.call(selectedItem);
                     }
                     setState(() {
                       if (!_hasOpenedOverlay) {
