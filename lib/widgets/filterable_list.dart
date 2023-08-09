@@ -79,7 +79,7 @@ class FilterableList<T> extends StatelessWidget {
               if (loading) {
                 return Container(
                     alignment: Alignment.center, padding: EdgeInsets.all(10), child: (progressIndicatorBuilder != null) ? progressIndicatorBuilder : CircularProgressIndicator());
-              }//TEST
+              }//TODO TEST
 
               if (suggestionBuilder != null) {
                 return InkWell(
