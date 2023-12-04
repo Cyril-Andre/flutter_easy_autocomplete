@@ -311,6 +311,9 @@ class _EasyAutocompleteState<T> extends State<EasyAutocomplete<T>> {
                           ? const Color.fromARGB(255, 240, 240, 240)
                           : Colors.white),
                   controller: _textFieldController,
+                  onTap: () => _textFieldController.selection = TextSelection(
+                      baseOffset: 0,
+                      extentOffset: _textFieldController.value.text.length),
                   inputFormatters: widget.inputFormatter,
                   autofocus: widget.autofocus,
                   focusNode: _focusNode,
