@@ -278,7 +278,9 @@ class _EasyAutocompleteState<T> extends State<EasyAutocomplete<T>> {
 
       _debounce = Timer(widget.debounceDuration, () async {
         _suggestions = await widget.asyncSuggestions!(input);
-        setState(() => _isLoading = false);
+        if (mounted){
+          setState(() => _isLoading = false);
+        }
         rebuildOverlay();
       });
     }
