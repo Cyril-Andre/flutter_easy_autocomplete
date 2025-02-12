@@ -283,7 +283,6 @@ class _EasyAutocompleteState<T> extends State<EasyAutocomplete<T>> {
         child: Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.start, crossAxisAlignment: CrossAxisAlignment.start, children: [
           TextFormField(
               readOnly: widget.readOnly,
-              enabled: !widget.readOnly,
               textInputAction: TextInputAction.next,
               decoration: widget.decoration.copyWith(filled: true, fillColor: widget.readOnly ? const Color.fromARGB(255, 240, 240, 240) : Colors.white),
               controller: _textFieldController,
